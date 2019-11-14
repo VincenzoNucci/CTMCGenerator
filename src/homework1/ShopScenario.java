@@ -2,6 +2,19 @@ package homework1;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Vector;
+
+import org.apache.commons.math3.*;
+import org.apache.commons.math3.geometry.euclidean.oned.Vector1D;
+import org.apache.commons.math3.linear.ArrayRealVector;
+import org.apache.commons.math3.linear.DecompositionSolver;
+import org.apache.commons.math3.linear.LUDecomposition;
+import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.RealLinearOperator;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.linear.RealVector;
+import org.apache.commons.math3.linear.SymmLQ;
+import org.apache.commons.math3.linear.ArrayRealVector;
 
 import app.CTMCGenerator;
 import app.CTMCGenerator.State;
@@ -14,10 +27,11 @@ public class ShopScenario {
 	//public static int TS = 2;
 	//public static int TL = 3;
 	
+	//TIME UNIT IS MINUTES
 	public static int MAX_USERS = 5;
 	public static int MAX_CLERKS = 1;
 	public static double M_A = 1.0; //ARRIVAL RATE
-	public static double SEL_RATE = 1.0/0.5; //30s to select a customer to be served
+	public static double SEL_RATE = 1.0/(30.0/60); //30s to select a customer to be served
 	public static double M_S = 1.0; //SERVICE TIME
 	//public static double P_SHORT = 0.5;
 	
@@ -35,10 +49,25 @@ public class ShopScenario {
 				System.out.print(q[i][j] + " ");
 			}
 		}*/
-		//Compute steady state probability
-		
-		
 		//System.err.println(ctmc.statesToString());
+		
+		//Compute steady state probability...
+		//...transpose Q
+		RealMatrix qT = MatrixUtils.createRealMatrix(q).transpose();
+		//...and substitute last row with all 1's
+		double[] vect = {1,1,1,1,1,1,1,1,1,1,1};
+		double[] se = {0,0,0,0,0,0,0,0,0,0,1};
+		RealVector v = new ArrayRealVector(vect);
+		RealVector eN = new ArrayRealVector(se);
+		qT.setRowVector(qT.getRowDimension()-1, v);
+		DecompositionSolver solver = new LUDecomposition(qT).getSolver();
+		RealVector pi = solver.solve(eN);
+		System.out.println(pi);
+		double sum = 0;
+		for(int i = 0; i < pi.getDimension(); i++) {
+			sum += pi.getEntry(i);
+		}
+		System.out.println("CumProb: " + sum);
 	}
 	
 	public static HashMap<State,Double> next(State s) {
