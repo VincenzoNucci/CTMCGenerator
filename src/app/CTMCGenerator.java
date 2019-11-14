@@ -1,9 +1,13 @@
 package app;
 
+import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Function;
 
 public class CTMCGenerator {
@@ -18,6 +22,46 @@ public class CTMCGenerator {
 		this.stepFunction = stepFunction;
 	}
 	
+	public HashMap<State,Integer> getStates() {
+		return this.states;
+	}
+	
+	public String statesToString() {
+		String ret = "";
+		for(Map.Entry<State, Integer> s : states.entrySet()) {
+			ret += s.getValue().toString() + "-"+ s.getKey().toString() + "\n";
+		}
+		return ret;
+	}
+	
+	public double[][] exportMatrixQ() {
+		double[][] Qexport = new double[states.size()][states.size()];
+		HashMap<State,HashMap<State,Double>> Qcopy = (HashMap<State, HashMap<State, Double>>) Q.clone();
+	    Iterator it = Qcopy.entrySet().iterator();
+	    while (it.hasNext()) {
+	        Map.Entry pair = (Map.Entry)it.next();
+	        State k = (State)pair.getKey();
+	        HashMap<State,Double> v = ((HashMap<State,Double>)pair.getValue());
+	        if(states.containsKey(k)) {
+	        	for(State s : v.keySet()) {
+	        		Qexport[((int)states.get(k))][((int)states.get(s))] = (double)v.get(s);
+	        	}
+	        }
+	        //System.out.println(pair.getKey() + " = " + pair.getValue());
+	        it.remove(); // avoids a ConcurrentModificationException
+	    }
+	    //Assign to diagonals the negative sum of the rows
+	    for(int i = 0; i < Qexport.length; i++) {
+	    	double sum = 0;
+	    	for(int j = 0; j < Qexport.length; j++) {
+	    		if(i!=j)
+	    			sum += Qexport[i][j];
+	    	}
+	    	Qexport[i][i] = -sum;
+	    }
+	    return Qexport;
+	}
+
 	public int generate() {
 		HashSet<State> pending = new HashSet<CTMCGenerator.State>();
 		states = new HashMap<CTMCGenerator.State, Integer>();
