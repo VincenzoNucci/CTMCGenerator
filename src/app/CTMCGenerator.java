@@ -101,6 +101,10 @@ public class CTMCGenerator {
 		public int[] getState() {
 			return state;
 		}
+		
+		public int retrieve(int idx) {
+			return state[idx];
+		}
 
 		@Override
 		public int hashCode() {
