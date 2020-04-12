@@ -15,12 +15,23 @@ import quasylab.sibilla.core.markov.MarkovChain;
 import quasylab.sibilla.core.markov.TransientProbabilityContinuousSolver;
 import quasylab.sibilla.core.markov.ContinuousTimeMarkovChain;
 
+import java.awt.Dimension;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.xy.XYDataset;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
+import org.jfree.ui.ApplicationFrame;
+
+
 public class ShopScenarioMarkovChain {
 	
 	public static int WAITING_CUSTOMERS = 0;
 	public static int SERVED_CUSTOMERS = 1;
-	public static int WAITING_CLERKS = 1;
-	public static int SERVING_CLERKS = 2;
+	public static int WAITING_CLERKS = 2;
+	public static int SERVING_CLERKS = 3;
 	
 	//UNIFORM TIME UNIT IS MINUTES
 	private int shopCapacity = 25;
@@ -33,7 +44,7 @@ public class ShopScenarioMarkovChain {
 	public static void main(String[] args) throws FileNotFoundException, InterruptedException {
 		new ShopScenarioMarkovChain(25, 5, 1/10.0, 1/5.0).collectAnalysis();
 		new ShopScenarioMarkovChain(10, 2, 1/5.0, 1/2.0).collectAnalysis();
-		new ShopScenarioMarkovChain(5, 1, 1/0.25, 1/1.0).collectAnalysis();
+		new ShopScenarioMarkovChain(5, 2, 1/2.0, 1/1.0).collectAnalysis();
 	}
 	
 	public ShopScenarioMarkovChain(int shopCapacity, int shopClerks, double arrivalRate, double servedRate) {
@@ -53,18 +64,26 @@ public class ShopScenarioMarkovChain {
 			//A new customer arrives at the shop
 			if(values[WAITING_CUSTOMERS] + values[SERVED_CUSTOMERS] < this.shopCapacity) {
 				int[] newState = Arrays.copyOf(values, values.length);
-				newState[WAITING_CUSTOMERS] = newState[WAITING_CUSTOMERS] + 1;
 				//If there is a free clerk, the customer is quickly served
-				if(values[WAITING_CLERKS] > 0 && values[WAITING_CUSTOMERS] > 0) {
-					newState[WAITING_CUSTOMERS] = newState[WAITING_CUSTOMERS] - 1;
+				if(values[WAITING_CLERKS] > 0) {
 					newState[SERVED_CUSTOMERS] = newState[SERVED_CUSTOMERS] + 1;
 					newState[WAITING_CLERKS] = newState[WAITING_CLERKS] - 1;
 					newState[SERVING_CLERKS] = newState[SERVING_CLERKS] + 1;
 					toReturn.put(new State(newState), this.lambdaArrival);
 				} else { //There are no free clerks, so the customer must wait his/her turn
+					newState[WAITING_CUSTOMERS] = newState[WAITING_CUSTOMERS] + 1;
 					toReturn.put(new State(newState), this.lambdaArrival);
 				}
 				
+			} else { //Shop is full but a clerk is free
+				int[] newState = Arrays.copyOf(values, values.length);
+				if(values[WAITING_CLERKS] > 0) {
+					newState[WAITING_CUSTOMERS] = newState[WAITING_CUSTOMERS] - 1;
+					newState[SERVED_CUSTOMERS] = newState[SERVED_CUSTOMERS] + 1;
+					newState[WAITING_CLERKS] = newState[WAITING_CLERKS] - 1;
+					newState[SERVING_CLERKS] = newState[SERVING_CLERKS] + 1;
+					toReturn.put(new State(newState), 1.0);
+				}
 			}
 			
 			//A clerk served a customer (and the customer exits)
@@ -79,7 +98,7 @@ public class ShopScenarioMarkovChain {
 		};
 	}
 	
-	public void collectAnalysis() throws FileNotFoundException, InterruptedException {
+	public String collectAnalysis() throws FileNotFoundException, InterruptedException {
 		
 		String path = "data/collect-"+shopCapacity+'-'+shopClerks+'-'+lambdaArrival+'-'+lambdaServed+".csv";
 		PrintWriter writer = new PrintWriter(path);
@@ -126,6 +145,11 @@ public class ShopScenarioMarkovChain {
 			
 		}
 		writer.close();
+		return path;
+	}
+	
+	public void plot() {
+		
 	}
 	
 }

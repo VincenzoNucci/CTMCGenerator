@@ -1,7 +1,6 @@
 package homework1;
 
 import quasylab.sibilla.core.markov.SteadyStateSolver;
-import quasylab.sibilla.core.markov.TransientProbabilityContinuousSolver;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,7 +17,6 @@ import java.util.stream.Stream;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 
-import quasylab.sibilla.core.markov.BoundedReachabilityContinuousSolver;
 import quasylab.sibilla.core.markov.ContinuousTimeMarkovChain;
 import quasylab.sibilla.core.markov.MarkovChain;
 import quasylab.sibilla.core.util.Pair;
@@ -30,8 +28,8 @@ public class TaxiScenarioMC {
 	public static int TS = 2;
 	public static int TL = 3;
 	
-	public static int MAX_USERS = 6;
-	public static int NUMBER_OF_TAXIS = 10;
+	public static int MAX_USERS = 10;
+	public static int NUMBER_OF_TAXIS = 5;
 	public static double LAMBDA = 1.0/5.0;
 	public static double BETA = 1.0;
 	public static double MU_SHORT = 1.0/10.0;
@@ -93,55 +91,16 @@ public class TaxiScenarioMC {
 				new State(NUMBER_OF_TAXIS,0,0,0), TaxiScenarioMC::next);
 	}
 	
-	public static int getSteadyStateTime(ContinuousTimeMarkovChain<State> ctmc, State init, Double threshold) {
-		TransientProbabilityContinuousSolver<State> solver = new TransientProbabilityContinuousSolver<State>(ctmc, 1.0E-6, init);
-		int i = 1;
-		Map<State, Double> prev = solver.compute(0);
-		while(true) {
-			Map<State,Double> curr = solver.compute(i);
-			//System.out.println(curr.get(init));
-			if(Math.abs(curr.get(init) - prev.get(init)) < threshold) {
-				break;
-			} else
-				prev = curr;
-				i++;
-		}
-		return i;
-	}
-	
 	public static void main(String[] args) {
 		State init = new State(NUMBER_OF_TAXIS, 0, 0, 0);
+		
 		ContinuousTimeMarkovChain<State> ctmc = generateCTMC();
 		System.out.println(ctmc.getStates().size());
-		TransientProbabilityContinuousSolver<State> solver = new TransientProbabilityContinuousSolver<State>(ctmc, 1.0E-6, init);
+		SteadyStateSolver<State> solver = new SteadyStateSolver<State>(ctmc, init);
+		solver.computeBSCC();
 		
-		Double THRESHOLD = 1e-8;
-		
-		//which is the probability to be in the state init within 12h
-		
-		//With threshold 1e-8 steady state is reached at time 428
-		int steadyStateTime = getSteadyStateTime(ctmc, init, THRESHOLD);
-		System.out.println("Steady state is reached at time: "+steadyStateTime);
-		
-		Map<State,Double> prob = solver.compute(steadyStateTime);
-		
-		for(State s : ctmc.getStates()) {
-			System.out.println(prob.get(s));
-		}
-		
-		//which is the probability to reach state init within 2h
-//		BoundedReachabilityContinuousSolver<State> solver2 = new BoundedReachabilityContinuousSolver<State>(ctmc, 1.0E-6, s -> s.retrieve(U)>5);
-//		for (int i=0 ; i<120 ; i++ ) {
-//			Map<State, Double> prob = solver2.compute(i);
-//			System.out.println(prob.get(init));
-//		}
-
-		
-//		SteadyStateSolver<State> solver = new SteadyStateSolver<State>(ctmc, init);
-//		solver.computeBSCC();
-		
-//		Map<State,Integer> index = ctmc.getStates().stream().collect(Collectors.toMap(
-//				x -> x, x -> ctmc.numberOfStates()));
+		Map<State,Integer> index = ctmc.getStates().stream().collect(Collectors.toMap(
+				x -> x, x -> ctmc.numberOfStates()));
 //		RealMatrix rm = MarkovChain.generateMatrix(i -> MatrixUtils.createRealMatrix(i, i),
 //				s -> ctmc.rateMatrixRow(s) , index);
 		
