@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import quasylab.sibilla.core.markov.MarkovChain;
 import quasylab.sibilla.core.markov.TransientProbabilityContinuousSolver;
@@ -24,6 +25,8 @@ import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.ui.ApplicationFrame;
+
+import org.paukov.combinatorics3.Generator;
 
 
 public class ShopScenarioMarkovChain {
@@ -42,9 +45,12 @@ public class ShopScenarioMarkovChain {
 	private ContinuousTimeMarkovChain<State> ctmc;
 	
 	public static void main(String[] args) throws FileNotFoundException, InterruptedException {
-		new ShopScenarioMarkovChain(25, 5, 1/10.0, 1/5.0).collectAnalysis();
-		new ShopScenarioMarkovChain(10, 2, 1/5.0, 1/2.0).collectAnalysis();
-		new ShopScenarioMarkovChain(5, 2, 1/2.0, 1/1.0).collectAnalysis();
+		
+		new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/10.0).collectAnalysis();
+		new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/5.0).collectAnalysis();
+		new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/2.0).collectAnalysis();
+		new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/1.0).collectAnalysis();
+		System.out.println("DONE");
 	}
 	
 	public ShopScenarioMarkovChain(int shopCapacity, int shopClerks, double arrivalRate, double servedRate) {
@@ -82,7 +88,7 @@ public class ShopScenarioMarkovChain {
 					newState[SERVED_CUSTOMERS] = newState[SERVED_CUSTOMERS] + 1;
 					newState[WAITING_CLERKS] = newState[WAITING_CLERKS] - 1;
 					newState[SERVING_CLERKS] = newState[SERVING_CLERKS] + 1;
-					toReturn.put(new State(newState), 1.0);
+					toReturn.put(new State(newState), this.lambdaArrival);
 				}
 			}
 			
@@ -102,7 +108,7 @@ public class ShopScenarioMarkovChain {
 		
 		String path = "data/collect-"+shopCapacity+'-'+shopClerks+'-'+lambdaArrival+'-'+lambdaServed+".csv";
 		PrintWriter writer = new PrintWriter(path);
-		
+		//writer.write("sample;utilisation;waiting;served;enter");
 		TransientProbabilityContinuousSolver<State> solver = new TransientProbabilityContinuousSolver<State>(this.ctmc, 1.0E-6, new State(0,0,this.shopClerks,0));
 		for(int t = 0; t < 1440; t++) {
 			Map<State, Double> prob = solver.compute(t);
