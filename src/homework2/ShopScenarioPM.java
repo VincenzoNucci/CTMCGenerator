@@ -4,6 +4,7 @@ import quasylab.sibilla.core.simulator.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.net.UnknownHostException;
 import java.util.HashMap;
@@ -27,9 +28,10 @@ public class ShopScenarioPM {
 	
 	//Population ENUM
 	public final static int WAITING_CUSTOMERS = 0;
-	public final static int SERVED_CUSTOMERS = 1;
-	public final static int WAITING_CLERKS = 2;
-	public final static int SERVING_CLERKS = 3;
+	public final static int WAITING_CUSTOMERS_OUTSIDE = 1;
+	public final static int SERVED_CUSTOMERS = 2;
+	public final static int WAITING_CLERKS = 3;
+	public final static int SERVING_CLERKS = 4;
 	
 	//SAMPLINGS MAP ENUM
 	public final static int CLERK_UTILISATION = 0;
@@ -83,10 +85,10 @@ public class ShopScenarioPM {
 	public static void main(String[] args) throws FileNotFoundException, InterruptedException, UnknownHostException {
 		
 		//POCHI POSTI - POCHI COMMESSI
-		new ShopScenarioPM(5,1,1/10.0,1/10.0).collectAnalysis(); //pochi posti e un solo commesso, sono entrambi lenti
-		new ShopScenarioPM(5,1,1/10.0,1/5.0).collectAnalysis(); //pochi posti e un solo commesso, i clienti cominciano a velocizzare
-		new ShopScenarioPM(5,1,1/10.0,1/2.0).collectAnalysis(); //pochi posti e un solo commesso, i clienti velocizzano di piu
-		new ShopScenarioPM(5,1,1/10.0,1/1.0).collectAnalysis(); //pochi posti e un solo commesso, i clienti vanno al massimo
+		new ShopScenarioPM(5,1,1/2.0,1/10.0).collectAnalysis(); //pochi posti e un solo commesso, sono entrambi lenti
+		new ShopScenarioPM(5,1,1/2.0,1/5.0).collectAnalysis(); //pochi posti e un solo commesso, i clienti cominciano a velocizzare
+		new ShopScenarioPM(5,1,1/2.0,1/2.0).collectAnalysis(); //pochi posti e un solo commesso, i clienti velocizzano di piu
+		new ShopScenarioPM(5,1,1/2.0,1/1.0).collectAnalysis(); //pochi posti e un solo commesso, i clienti vanno al massimo
 		
 //		new ShopScenarioPM(5,1,1/10.0,1/1.0).collectAnalysis(); //pochi posti e un solo commesso, il commesso è lento
 //		new ShopScenarioPM(5,1,1/5.0,1/1.0).collectAnalysis(); //pochi posti e un solo commesso, il commesso comincia a velocizzare
@@ -167,75 +169,69 @@ public class ShopScenarioPM {
 	}
 	
 	public PopulationState initialState() {
-		return new PopulationState(new int[] { 0,0, this.shop_clerks, 0 });
+		return new PopulationState(new int[] { 0, 0, 0, this.shop_clerks, 0 });
 	}
 	
 	public PopulationModel setRules() {
-		PopulationRule rule_ARR_SERV = new ReactionRule(
-				"Customer arrives at the shop and it's already served",
-				new Specie[] { new Specie(WAITING_CLERKS) },
-				new Specie[] { new Specie(SERVED_CUSTOMERS), new Specie(SERVING_CLERKS) },
+		
+		
+		PopulationRule rule_MOVE = new ReactionRule(
+				"Queue moves",
+				new Specie[] { new Specie(WAITING_CLERKS), new Specie(WAITING_CUSTOMERS) },
+				new Specie[] { new Specie(SERVING_CLERKS), new Specie(SERVED_CUSTOMERS) },
 				//s -> s.getOccupancy(WAITING_CUSTOMERS)*LAMBDA_ARRIVAL*(s.getOccupancy())
 				s -> {
-					//if(s.getOccupancy(WAITING_CUSTOMERS) + s.getOccupancy(SERVED_CUSTOMERS) < this.shop_capacity) {
-						/*if(s.getOccupancy(WAITING_CLERKS) > 0) {
-							return s.getOccupancy(WAITING_CLERKS)*lambda_arrival;
-						}*/
-						return s.getOccupancy(WAITING_CLERKS)*lambda_arrival;
-					
+					if(s.getOccupancy(WAITING_CLERKS) <= 0 && s.getOccupancy(WAITING_CUSTOMERS) + s.getOccupancy(SERVED_CUSTOMERS) < shop_capacity)
+						return (s.getOccupancy(WAITING_CLERKS))*s.getOccupancy(WAITING_CUSTOMERS)*lambda_arrival;
+					else
+						return 0.0;
 				}
 			);
 		
-		PopulationRule rule_ARR_WAIT = new ReactionRule(
-				"There are no free clerks, so the newly arrived customer must wait her/his turn",
+		
+		PopulationRule rule_ARR = new ReactionRule(
+				"Customer arrives at the shop and he puts himself into queue",
 				new Specie[] {  },
 				new Specie[] { new Specie(WAITING_CUSTOMERS) },
 				//s -> s.getOccupancy(WAITING_CUSTOMERS)*LAMBDA_ARRIVAL*(s.getOccupancy())
 				s -> {
-					//if(s.getOccupancy(WAITING_CUSTOMERS) + s.getOccupancy(SERVED_CUSTOMERS) < shop_capacity) {
-						//if(s.getOccupancy(WAITING_CLERKS) == 0) {
-						//	return 1.0;
-						//}
+					if(s.getOccupancy(WAITING_CLERKS) <= 0 && s.getOccupancy(WAITING_CUSTOMERS) + s.getOccupancy(SERVED_CUSTOMERS) < shop_capacity)
 						return s.getOccupancy(WAITING_CUSTOMERS)*lambda_arrival;
-					//}
+					else
+						return 0.0;
 				}
 			);
 		
-		PopulationRule rule_FULL_SERV = new ReactionRule(
-				"Shop is full, but at least a clerk is free",
-				new Specie[] { new Specie(WAITING_CUSTOMERS), new Specie(WAITING_CLERKS) },
-				new Specie[] { new Specie(SERVED_CUSTOMERS), new Specie(SERVING_CLERKS) },
+		PopulationRule rule_WAIT_OUT = new ReactionRule(
+				"Customer arrives at the shop and waits outside",
+				new Specie[] {  },
+				new Specie[] { new Specie(WAITING_CUSTOMERS_OUTSIDE) },
 				//s -> s.getOccupancy(WAITING_CUSTOMERS)*LAMBDA_ARRIVAL*(s.getOccupancy())
 				s -> {
-					//if(s.getOccupancy(WAITING_CUSTOMERS) + s.getOccupancy(SERVED_CUSTOMERS) >= shop_capacity) {
-						//if(s.getOccupancy(WAITING_CLERKS) > 0) {
-							return s.getOccupancy(WAITING_CLERKS)*s.getOccupancy(WAITING_CUSTOMERS)*lambda_arrival;
-						
-					
+					if(s.getOccupancy(WAITING_CUSTOMERS) + s.getOccupancy(SERVED_CUSTOMERS) >= shop_capacity)
+						return s.getOccupancy(WAITING_CUSTOMERS_OUTSIDE)*lambda_arrival;
+					else
+						return 0.0;
 				}
 			);
 	
-		PopulationRule rule_SERV_EXIT = new ReactionRule(
+		PopulationRule rule_SERV = new ReactionRule(
 				"Clerk served a customer and the customer exits",
 				new Specie[] { new Specie(SERVED_CUSTOMERS), new Specie(SERVING_CLERKS) },
 				new Specie[] { new Specie(WAITING_CLERKS) },
 				//s -> s.getOccupancy()*LAMBDA_SERVED*(s.getOccupancy())
 				s -> {//Everytime a customer enters the shop, if there is a waiting clerk, the customer is served
-					/*if(s.getOccupancy(SERVED_CUSTOMERS) > 0 && s.getOccupancy(SERVING_CLERKS)> 0) {
-						return 1.0;
-					}
-					else
-						return 0.0;*/
+					
 					return s.getOccupancy(SERVED_CUSTOMERS)*s.getOccupancy(SERVING_CLERKS)*lambda_served;
 				}
 			);
 		
 		PopulationModel f = new PopulationModel();
 		f.addState("init", this.initialState());
-		f.addRule(rule_ARR_SERV);
-		f.addRule(rule_ARR_WAIT);
-		f.addRule(rule_FULL_SERV);
-		f.addRule(rule_SERV_EXIT);
+		f.addRule(rule_ARR);
+		f.addRule(rule_WAIT_OUT);
+		f.addRule(rule_MOVE);
+		f.addRule(rule_SERV);
 		
 		return f;
 	}
@@ -243,18 +239,13 @@ public class ShopScenarioPM {
 	public SamplingFunction<PopulationState> setSamplings() {
 		
 		StatisticSampling<PopulationState> clerkUtilisationSamp = StatisticSampling.measure("Clerks utilisation",
-				SAMPLINGS, DEADLINE, s -> s.getOccupancy(SERVING_CLERKS));
+				SAMPLINGS, DEADLINE, s -> s.getOccupancy(SERVING_CLERKS)/this.shop_clerks);
 		StatisticSampling<PopulationState> customerServedSamp = StatisticSampling.measure("#CustomerServed",
 				SAMPLINGS, DEADLINE, s -> s.getOccupancy(SERVED_CUSTOMERS));
 		StatisticSampling<PopulationState> customerWaitingSamp = StatisticSampling.measure("#CustomerWaiting",
 				SAMPLINGS, DEADLINE, s -> s.getOccupancy(WAITING_CUSTOMERS));
 		StatisticSampling<PopulationState> customerCantEnterSamp = StatisticSampling.measure("#CustomerCantEnter",
-				SAMPLINGS, DEADLINE, s -> {
-						if((s.getOccupancy(WAITING_CUSTOMERS) + s.getOccupancy(SERVED_CUSTOMERS) == shop_capacity)) {
-							return 1/lambda_arrival;
-						} else
-							return 0.0;
-					});
+				SAMPLINGS, DEADLINE, s -> s.getOccupancy(WAITING_CUSTOMERS_OUTSIDE));
 		
 		SamplingFunction<PopulationState> sf = new SamplingCollection<>(
 				clerkUtilisationSamp,
@@ -275,6 +266,7 @@ public class ShopScenarioPM {
 		SimulationEnvironment sim = new SimulationEnvironment( ThreadSimulationManager.getFixedThreadSimulationManagerFactory(TASKS) );
 		//Start the simulation
 		sim.simulate(new DefaultRandomGenerator(),f,initialState(),sf,REPLICA,DEADLINE);
+		
 		String path = "data/Data_"+this.shop_capacity+"_"+this.shop_clerks+"_"+this.lambda_arrival+"_"+this.lambda_served;
 		//System.out.println(clerkUtilisationSamp.getSimulationTimeSeries(REPLICA).getFirst().getSize());
 		new File(path).mkdirs();
@@ -282,7 +274,6 @@ public class ShopScenarioPM {
 		samplings.get(CUSTOMER_SERVED).printTimeSeries(new PrintStream(path+"/ShopScenarionPM_"+REPLICA+"_"+N+"_CustomerServed_.data"),';');
 		samplings.get(CUSTOMER_WAITING).printTimeSeries(new PrintStream(path+"/ShopScenarionPM_"+REPLICA+"_"+N+"_CustomerWaiting_.data"),';');
 		samplings.get(CUSTOMER_ENTER).printTimeSeries(new PrintStream(path+"/ShopScenarionPM_"+REPLICA+"_"+N+"_CustomerWandering_.data"),';');
-	
 	}
 	
 	
