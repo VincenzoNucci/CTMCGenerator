@@ -8,7 +8,7 @@ import quasylab.sibilla.core.simulator.SimulationEnvironment;
 import quasylab.sibilla.core.simulator.sampling.SamplingCollection;
 import quasylab.sibilla.core.simulator.sampling.StatisticSampling;
 
-public class ShopScenarioModel {
+public class ShopScenarioModel2 {
 	
 	public final static int SAMPLINGS = 1440;
 	public final static double DEADLINE = 1440;

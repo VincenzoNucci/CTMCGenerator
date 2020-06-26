@@ -21,35 +21,36 @@ import java.awt.Dimension;
 
 public class ShopScenarioMarkovChain {
 	
-	public static int WAITING_CUSTOMERS = 0;
-	public static int SERVED_CUSTOMERS = 1;
-	public static int WAITING_CLERKS = 2;
-	public static int SERVING_CLERKS = 3;
+	public final static int WAITING_CUSTOMERS = 0;
+	public final static int SERVED_CUSTOMERS = 1;
+	public final static int WAITING_CLERKS = 2;
+	public final static int SERVING_CLERKS = 3;
+	public final static int CUSTOMERS_OUTSIDE = 4;
 	
 	//UNIFORM TIME UNIT IS MINUTES
-	private int shopCapacity = 25;
-	private int shopClerks = 5;
-	private double lambdaArrival = 1/10.0; //ARRIVAL RATE
+	private int N = 25;
+	private int K = 5;
+	private double LAMBDA_A = 1/10.0; //ARRIVAL RATE
 	//public static double SEL_RATE = 1.0/(0.6); //SELECTION RATE, 10s to select a customer to be served
-	private double lambdaServed = 1/10.0; //SERVICE TIME
+	private double LAMBDA_S = 1/10.0; //SERVICE TIME
 	private ContinuousTimeMarkovChain<State> ctmc;
 	
 	public static void main(String[] args) throws FileNotFoundException, InterruptedException {
 		
+		new ShopScenarioMarkovChain(5, 1, 1/1.0, 1/10.0).collectAnalysis();
+		new ShopScenarioMarkovChain(5, 1, 1/2.0, 1/10.0).collectAnalysis();
+		new ShopScenarioMarkovChain(5, 1, 1/5.0, 1/10.0).collectAnalysis();
 		new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/10.0).collectAnalysis();
-		new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/5.0).collectAnalysis();
-		new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/2.0).collectAnalysis();
-		new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/1.0).collectAnalysis();
 		System.out.println("DONE");
 	}
 	
 	public ShopScenarioMarkovChain(int shopCapacity, int shopClerks, double arrivalRate, double servedRate) {
-		this.shopCapacity = shopCapacity;
-		this.shopClerks = shopClerks;
-		this.lambdaArrival = arrivalRate;
-		this.lambdaServed = servedRate;
+		this.N = shopCapacity;
+		this.K = shopClerks;
+		this.LAMBDA_A = arrivalRate;
+		this.LAMBDA_S = servedRate;
 		this.ctmc = MarkovChain.generateMarkovChain(ContinuousTimeMarkovChain::new, 
-				new State(0,0,this.shopClerks,0), this.next());
+				new State(0,0,this.K,0,0), this.next());
 	}
 	
 	public Function<State,Map<State,Double>> next() {
@@ -58,28 +59,35 @@ public class ShopScenarioMarkovChain {
 			int[] values = s.getState();
 			
 			//A new customer arrives at the shop
-			if(values[WAITING_CUSTOMERS] + values[SERVED_CUSTOMERS] < this.shopCapacity) {
-				int[] newState = Arrays.copyOf(values, values.length);
-				//If there is a free clerk, the customer is quickly served
-				if(values[WAITING_CLERKS] > 0) {
-					newState[SERVED_CUSTOMERS] = newState[SERVED_CUSTOMERS] + 1;
-					newState[WAITING_CLERKS] = newState[WAITING_CLERKS] - 1;
-					newState[SERVING_CLERKS] = newState[SERVING_CLERKS] + 1;
-					toReturn.put(new State(newState), this.lambdaArrival);
-				} else { //There are no free clerks, so the customer must wait his/her turn
+			if((values[WAITING_CUSTOMERS] + values[SERVED_CUSTOMERS]) < this.N) {
+				//Customer can enter after waiting outside
+				if(values[CUSTOMERS_OUTSIDE] > 0) {
+					int[] newState = Arrays.copyOf(values, values.length);
+					newState[CUSTOMERS_OUTSIDE] = newState[CUSTOMERS_OUTSIDE] - 1;
 					newState[WAITING_CUSTOMERS] = newState[WAITING_CUSTOMERS] + 1;
-					toReturn.put(new State(newState), this.lambdaArrival);
+					toReturn.put(new State(newState), values[CUSTOMERS_OUTSIDE]*LAMBDA_S);
 				}
-				
-			} else { //Shop is full but a clerk is free
 				int[] newState = Arrays.copyOf(values, values.length);
-				if(values[WAITING_CLERKS] > 0) {
-					newState[WAITING_CUSTOMERS] = newState[WAITING_CUSTOMERS] - 1;
-					newState[SERVED_CUSTOMERS] = newState[SERVED_CUSTOMERS] + 1;
-					newState[WAITING_CLERKS] = newState[WAITING_CLERKS] - 1;
-					newState[SERVING_CLERKS] = newState[SERVING_CLERKS] + 1;
-					toReturn.put(new State(newState), this.lambdaArrival);
-				}
+				newState[WAITING_CUSTOMERS] = newState[WAITING_CUSTOMERS]+1;
+				toReturn.put(new State(newState), LAMBDA_A);
+				
+			} else { //Shop is full
+				int[] newState = Arrays.copyOf(values, values.length);
+				newState[CUSTOMERS_OUTSIDE] = newState[CUSTOMERS_OUTSIDE] + 1;
+				toReturn.put(new State(newState), LAMBDA_A);
+			}
+			
+			//
+			
+			//A clerk starts serving a customer
+			if(values[WAITING_CLERKS] > 0 && values[WAITING_CUSTOMERS] > 0) {
+				int[] newState = Arrays.copyOf(values, values.length);
+				newState[WAITING_CLERKS] = newState[WAITING_CLERKS] - 1;
+				newState[WAITING_CUSTOMERS] = newState[WAITING_CUSTOMERS] - 1;
+				
+				newState[SERVING_CLERKS] = newState[SERVING_CLERKS] + 1;
+				newState[SERVED_CUSTOMERS] = newState[SERVED_CUSTOMERS] + 1;
+				toReturn.put(new State(newState), values[WAITING_CLERKS]*LAMBDA_S);
 			}
 			
 			//A clerk served a customer (and the customer exits)
@@ -87,8 +95,9 @@ public class ShopScenarioMarkovChain {
 				int[] newState = Arrays.copyOf(values, values.length);
 				newState[SERVED_CUSTOMERS] = newState[SERVED_CUSTOMERS] - 1;
 				newState[SERVING_CLERKS] = newState[SERVING_CLERKS] - 1;
+				
 				newState[WAITING_CLERKS] = newState[WAITING_CLERKS] + 1;
-				toReturn.put(new State(newState), this.lambdaServed);
+				toReturn.put(new State(newState), values[SERVING_CLERKS]*(values[SERVED_CUSTOMERS]/N)*LAMBDA_S);
 			}
 			return toReturn;
 		};
@@ -96,10 +105,10 @@ public class ShopScenarioMarkovChain {
 	
 	public String collectAnalysis() throws FileNotFoundException, InterruptedException {
 		
-		String path = "data/collect-"+shopCapacity+'-'+shopClerks+'-'+lambdaArrival+'-'+lambdaServed+".csv";
+		String path = "data/collect-"+N+'-'+K+'-'+LAMBDA_A+'-'+LAMBDA_S+".csv";
 		PrintWriter writer = new PrintWriter(path);
 		//writer.write("sample;utilisation;waiting;served;enter");
-		TransientProbabilityContinuousSolver<State> solver = new TransientProbabilityContinuousSolver<State>(this.ctmc, 1.0E-6, new State(0,0,this.shopClerks,0));
+		TransientProbabilityContinuousSolver<State> solver = new TransientProbabilityContinuousSolver<State>(this.ctmc, 1.0E-6, new State(0,0,this.K,0,0));
 		for(int t = 0; t < 1440; t++) {
 			Map<State, Double> prob = solver.compute(t);
 			
@@ -120,22 +129,22 @@ public class ShopScenarioMarkovChain {
 			}
 			
 			//Average number of customer served per time unit
-			double served_rate = 0.0;
+			double avg_served = 0.0;
 			for(State s : prob.keySet()) {
 				if(s.retrieve(SERVED_CUSTOMERS) > 0) {
-					served_rate += this.lambdaServed * prob.get(s);
+					avg_served += this.LAMBDA_S * prob.get(s);
 				}
 			}
 			
 			//Average number of customers per time unit that cannot enter the shop
-			double canter_rate2 = 0.0;
+			double avg_outside = 0.0;
 			for(State s : prob.keySet()) {
-				if(s.retrieve(WAITING_CUSTOMERS) + s.retrieve(SERVED_CUSTOMERS) >= this.shopCapacity) {
-					canter_rate2 += this.lambdaArrival * prob.get(s);
+				if(s.retrieve(CUSTOMERS_OUTSIDE) > 0) {
+					avg_outside += prob.get(s);
 				}
 			}
-			writer.write(""+t + ';' + u + ';' + avg_wait + ';' + served_rate + ';'
-					+ canter_rate2+'\n');
+			writer.write(""+t + ';' + u + ';' + avg_wait + ';' + avg_served + ';'
+					+ avg_outside+'\n');
 			//Thread.sleep(10);
 			writer.flush();
 			
