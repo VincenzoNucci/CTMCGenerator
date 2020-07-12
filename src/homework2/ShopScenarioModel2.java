@@ -22,6 +22,7 @@ public class ShopScenarioModel2 {
 		collection.add(StatisticSampling.measure("Waiting",SAMPLINGS,DEADLINE,ShopScenarioModelDefinition2::waitingOfC));
 		collection.add(StatisticSampling.measure("Served",SAMPLINGS,DEADLINE,ShopScenarioModelDefinition2::servedOfC));
 		collection.add(StatisticSampling.measure("Outside",SAMPLINGS,DEADLINE,ShopScenarioModelDefinition2::outsideOfC));
+		collection.add(StatisticSampling.measure("Throughput_outside", SAMPLINGS, DEADLINE, ShopScenarioModelDefinition2::throughputOfO));
 		simulator.simulate(def.createModel(),def.state(),collection,REPLICA,DEADLINE);
 		collection.printTimeSeries("data","ShopScenario_",".data");
 	}
