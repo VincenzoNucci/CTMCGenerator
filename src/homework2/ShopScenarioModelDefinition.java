@@ -28,7 +28,7 @@ public class ShopScenarioModelDefinition implements ModelDefinition<PopulationSt
 	
 	//RATES
 	public final static double LAMBDA_A = 1/1.0;
-	public final static double LAMBDA_S = 1/10.0;
+	public final static double LAMBDA_S = 1/1.0;
 	
 	
 	

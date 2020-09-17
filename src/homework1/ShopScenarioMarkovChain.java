@@ -54,7 +54,7 @@ public class ShopScenarioMarkovChain {
 	//UNIFORM TIME UNIT IS MINUTES
 	private int N = 25;
 	private int K = 5;
-	private double LAMBDA_A = 1/10.0; //ARRIVAL RATE
+	private double LAMBDA_A = 1/(10 * 60); //ARRIVAL RATE
 	//public static double SEL_RATE = 1.0/(0.6); //SELECTION RATE, 10s to select a customer to be served
 	private double LAMBDA_S = 1/10.0; //SERVICE TIME
 	private ContinuousTimeMarkovChain<State> ctmc;
@@ -62,17 +62,25 @@ public class ShopScenarioMarkovChain {
 	
 	public static void main(String[] args) throws InterruptedException, IOException {
 		
-		//new ShopScenarioMarkovChain(5, 3, 1/10.0, 1/1.0).collectAnalysis(1, 720);
+		
 		//new ShopScenarioMarkovChain(5, 1, 1/2.0, 1/10.0).collectAnalysis();
 		//new ShopScenarioMarkovChain(5, 1, 1/5.0, 1/10.0).collectAnalysis();
 		//new ShopScenarioMarkovChain(5, 1, 1/10.0, 1/10.0).collectAnalysis();
+		
 		int K = 1; int N = 1; int hours = 24 * 60;
+		//new ShopScenarioMarkovChain(5, 5, 1/1.0, 1/1.0).collectAnalysis(1, hours);
 		//new ShopScenarioMarkovChain(N, K, 1/1.0, 1/1.0).reachPredicate(s -> s.retrieve(SERVED_CUSTOMERS) > 1, 720);
-		new ShopScenarioMarkovChain(5,1,1/1.0, 1/10.0).collectAnalysis(1, hours);
-		new ShopScenarioMarkovChain(5,1,1/1.0, 1/5.0).collectAnalysis(1, hours);
-		new ShopScenarioMarkovChain(5,1,1/1.0, 1/2.0).collectAnalysis(1, hours);
-		new ShopScenarioMarkovChain(5,2,1/1.0, 1/1.0).collectAnalysis(1, hours);
-		//new ShopScenarioMarkovChain(5,1,1/2.0,1/5.0).collectAnalysis(1, hours);
+		//new ShopScenarioMarkovChain(5, 5, 1/(1.0), 1/(2.0)).steadyState();
+		for(int n: new int[] {5,10,25}) {
+			for(int k: new int[] {1, 2, 5}) {
+				for(double la: new double[] {10.0, 5.0, 2.0, 1.0}) {
+					for(double ls: new double[] {10.0, 5.0, 2.0, 1.0}) {
+						ShopScenarioMarkovChain ctmc = new ShopScenarioMarkovChain(n, k, 1/la, 1/ls);
+						ctmc.collectAnalysis(1, hours);
+					}
+				}
+			}
+		}
 		System.out.println("DONE");
 	}
 	
@@ -106,7 +114,7 @@ public class ShopScenarioMarkovChain {
 				toReturn.put(new State(newState), LAMBDA_A);
 				
 			} else { //Shop is full
-				if(values[CUSTOMERS_OUTSIDE] < 100) {
+				if(values[CUSTOMERS_OUTSIDE] < 25) {
 					int[] newState = Arrays.copyOf(values, values.length);
 					newState[CUSTOMERS_OUTSIDE] = newState[CUSTOMERS_OUTSIDE] + 1;
 					toReturn.put(new State(newState), LAMBDA_A);
@@ -123,7 +131,7 @@ public class ShopScenarioMarkovChain {
 				
 				newState[SERVING_CLERKS] = newState[SERVING_CLERKS] + 1;
 				newState[SERVED_CUSTOMERS] = newState[SERVED_CUSTOMERS] + 1;
-				toReturn.put(new State(newState), values[WAITING_CLERKS]*values[WAITING_CUSTOMERS] * LAMBDA_S); //values[WAITING_CLERKS]*LAMBDA_S
+				toReturn.put(new State(newState), values[WAITING_CLERKS]*values[WAITING_CUSTOMERS]/(N*1.0) * LAMBDA_S); //values[WAITING_CLERKS]*LAMBDA_S
 			}
 			
 			//A clerk served a customer (and the customer exits)
@@ -134,7 +142,7 @@ public class ShopScenarioMarkovChain {
 				newState[SERVING_CLERKS] = newState[SERVING_CLERKS] - 1;
 				
 				newState[WAITING_CLERKS] = newState[WAITING_CLERKS] + 1;
-				toReturn.put(new State(newState), values[SERVING_CLERKS]*values[SERVED_CUSTOMERS]*LAMBDA_S);  //values[SERVING_CLERKS]*values[SERVED_CUSTOMERS]*LAMBDA_S
+				toReturn.put(new State(newState), values[SERVING_CLERKS]*(values[SERVED_CUSTOMERS]/(N*1.0))*LAMBDA_S);  //values[SERVING_CLERKS]*values[SERVED_CUSTOMERS]*LAMBDA_S
 			}
 			return toReturn;
 		};
@@ -150,13 +158,14 @@ public class ShopScenarioMarkovChain {
 	
 	public void collectAnalysis(int replica, int time) throws InterruptedException, IOException {
 		String folder = "data/Data-"+N+"-"+K+"-"+1/LAMBDA_A+"-"+1/LAMBDA_S;
+		if( new File(folder).exists() ) return;
 		new File(folder).mkdirs();
-		String path = folder + "/" + "collect-"+N+'-'+K+'-'+1/LAMBDA_A+'-'+1/LAMBDA_S+"_";
-		PrintWriter writer1 = new PrintWriter(path.concat("UTILISATION_.csv"));
-		PrintWriter writer2 = new PrintWriter(path.concat("WAITING_.csv"));
-		PrintWriter writer3 = new PrintWriter(path.concat("SERVED_.csv"));
-		PrintWriter writer4 = new PrintWriter(path.concat("OUTSIDE_.csv"));
-		PrintWriter writer5 = new PrintWriter(path.concat("THROUGHPUT_OUTSIDE_.csv"));
+		String path = folder + "/" + "ShopScenario_";
+		PrintWriter writer1 = new PrintWriter(path.concat("Utilisation.data"));
+		PrintWriter writer2 = new PrintWriter(path.concat("Waiting.data"));
+		PrintWriter writer3 = new PrintWriter(path.concat("Served.data"));
+		PrintWriter writer4 = new PrintWriter(path.concat("Outside.data"));
+		//PrintWriter writer5 = new PrintWriter(path.concat("THROUGHPUT_OUTSIDE_.csv"));
 		//writer.write("sample;utilisation;waiting;served;enter");
 		
 		
@@ -168,7 +177,7 @@ public class ShopScenarioMarkovChain {
 					DescriptiveStatistics dsAvgWaiting = new DescriptiveStatistics();
 					DescriptiveStatistics dsAvgServed = new DescriptiveStatistics();
 					DescriptiveStatistics dsAvgOutside = new DescriptiveStatistics();
-					DescriptiveStatistics dsThrOutside = new DescriptiveStatistics();
+					//DescriptiveStatistics dsThrOutside = new DescriptiveStatistics();
 					
 					Map<State, Double> prob = solver.compute(t);
 					//System.out.println(prob);
@@ -196,43 +205,45 @@ public class ShopScenarioMarkovChain {
 						}
 						
 						if(s.retrieve(SERVED_CUSTOMERS) > 0) {
-							avg_served += s.retrieve(SERVED_CUSTOMERS) * prob.get(s);
+							avg_served += prob.get(s);
 						}
 						
 						if(s.retrieve(CUSTOMERS_OUTSIDE) > 0) {
-							avg_outside += s.retrieve(CUSTOMERS_OUTSIDE) * prob.get(s);
+							avg_outside += prob.get(s);
 						}
 						
-						if(s.retrieve(CUSTOMERS_OUTSIDE) > 0) {
-							throughput_outside += LAMBDA_A * prob.get(s);
-						}
+//						if(s.retrieve(CUSTOMERS_OUTSIDE) > 0) {
+//							throughput_outside += LAMBDA_A * prob.get(s);
+//						}
 					}
 					
+					//System.out.println(u);
 					dsUtilisation.addValue(u);
 					dsAvgWaiting.addValue(avg_wait);
-					dsAvgServed.addValue(avg_served);
-					dsAvgOutside.addValue(avg_outside);
-					dsThrOutside.addValue(throughput_outside);
+					dsAvgServed.addValue(avg_served * this.LAMBDA_S);
+					dsAvgOutside.addValue(avg_outside * this.LAMBDA_A);
+					//dsThrOutside.addValue(throughput_outside);
 					
 			
 					writer1.write(""+t*1.0 + ';' + dsUtilisation.getMean() + ';' + dsUtilisation.getStandardDeviation() +'\n');
 					writer2.write(""+t*1.0 + ';' + dsAvgWaiting.getMean() + ';' + dsAvgWaiting.getStandardDeviation() + '\n');
 					writer3.write(""+t*1.0 + ';' + dsAvgServed.getMean() + ';' + dsAvgServed.getStandardDeviation() + '\n');
 					writer4.write(""+t*1.0 + ';' + dsAvgOutside.getMean() + ';' + dsAvgOutside.getStandardDeviation() + '\n');
-					writer5.write(""+t*1.0 + ';' + dsThrOutside.getMean() + ';' + dsThrOutside.getStandardDeviation() + '\n');
+					//writer5.write(""+t*1.0 + ';' + dsThrOutside.getMean() + ';' + dsThrOutside.getStandardDeviation() + '\n');
 					//Thread.sleep(10);
 					writer1.flush();
 					writer2.flush();
 					writer3.flush();
 					writer4.flush();
-					writer5.flush();
+					//writer5.flush();
+					System.out.println("Progress: "+t+"/"+time);
 			}
 		}
 		writer1.close();
 		writer2.close();
 		writer3.close();
 		writer4.close();
-		writer5.close();
+		//writer5.close();
 		
 	}
 	
@@ -300,9 +311,33 @@ public class ShopScenarioMarkovChain {
 		
 		//SymmLQ lqSolver = new SymmLQ(1000000000,1e-11,false);
 		//System.out.println(lqSolver.solve((RealLinearOperator) qT, eN));
+		double avg_served_tu = 0.0, avg_waiting = 0.0, avg_outside_tu = 0.0, u = 0.0;
 		DecompositionSolver solver = new LUDecomposition(qT).getSolver();
 		RealVector pi = solver.solve(eN);
+		for(State s : states.keySet()) {
+			if(s.retrieve(SERVED_CUSTOMERS) > 0) {
+			 	
+				avg_served_tu += pi.getEntry(states.get(s));
+			}
+			
+			if(s.retrieve(WAITING_CUSTOMERS) > 0) {
+				avg_waiting += s.retrieve(WAITING_CUSTOMERS) * pi.getEntry(states.get(s));
+			}
+			
+			if(s.retrieve(CUSTOMERS_OUTSIDE) > 0) {
+				avg_outside_tu += pi.getEntry(states.get(s));
+			}
+			
+			if(s.retrieve(SERVING_CLERKS) > 0) {
+				u += pi.getEntry(states.get(s));
+			}
+		}
 		
+		
+		System.out.println("Average served per time unit " + avg_served_tu * this.LAMBDA_S);
+		System.out.println("Average waiting " + avg_waiting);
+		System.out.println("Average outside per time unit " + avg_outside_tu*this.LAMBDA_A);
+		System.out.println("Utilisation " + u);
 		System.out.println("vector pi" + pi);
 		
 		return pi;

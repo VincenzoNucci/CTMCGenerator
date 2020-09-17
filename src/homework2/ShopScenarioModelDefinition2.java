@@ -24,12 +24,12 @@ public class ShopScenarioModelDefinition2 implements ModelDefinition<PopulationS
 	public final static int CUSTOMER_ENTER = 3;
 	
 	//Population INIT
-	public final static int N = 5;
-	public final static int K = 1;
+	public static int N = 5;
+	public static int K = 1;
 	
 	//RATES
-	public final static double LAMBDA_A = 1/1.0;
-	public final static double LAMBDA_S = 1/10.0;
+	public static double LAMBDA_A = 1/1.0;
+	public static double LAMBDA_S = 1/1.0;
 	
 	
 	
@@ -95,7 +95,7 @@ public class ShopScenarioModelDefinition2 implements ModelDefinition<PopulationS
 				new Population[] { new Population(SERVED_CUSTOMERS), new Population(WORKING_CLERKS) },
 				(t,s) -> {
 					//return s.getOccupancy(WAITING_CLERKS)*s.getOccupancy(WAITING_CUSTOMERS)*LAMBDA_S;
-					return s.getOccupancy(WAITING_CLERKS)* s.getOccupancy(WAITING_CUSTOMERS) * LAMBDA_S;
+					return s.getOccupancy(WAITING_CLERKS)* s.getOccupancy(WAITING_CUSTOMERS)/N * LAMBDA_S;
 				}
 				
 			);
@@ -107,7 +107,7 @@ public class ShopScenarioModelDefinition2 implements ModelDefinition<PopulationS
 				new Population[] { new Population(WAITING_CLERKS) },
 				(t,s) -> {
 					//return s.getOccupancy(WORKING_CLERKS)*s.getOccupancy(SERVED_CUSTOMERS)*LAMBDA_S;
-					return s.getOccupancy(WORKING_CLERKS)*s.getOccupancy(SERVED_CUSTOMERS)*LAMBDA_S;
+					return s.getOccupancy(WORKING_CLERKS)*s.getOccupancy(SERVED_CUSTOMERS)/N *LAMBDA_S;
 				}
 				
 			);
@@ -132,15 +132,11 @@ public class ShopScenarioModelDefinition2 implements ModelDefinition<PopulationS
 	}
 	
 	public static double servedOfC( PopulationState s ) {
-		return s.getOccupancy(SERVED_CUSTOMERS);
+		return s.getOccupancy(SERVED_CUSTOMERS) * LAMBDA_S;
 	}
 	
 	public static double outsideOfC( PopulationState s ) {
-		return s.getOccupancy(CUSTOMERS_OUTSIDE);
-	}
-	
-	public static double throughputOfO( PopulationState s ) {
-		return s.getOccupancy(CUSTOMERS_OUTSIDE) * LAMBDA_S;
+		return s.getOccupancy(CUSTOMERS_OUTSIDE) * LAMBDA_A;
 	}
 
 }
